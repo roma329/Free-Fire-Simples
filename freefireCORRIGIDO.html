@@ -853,8 +853,10 @@
     let playerLeaderboardPos = null;
 
     function getActivePlayerRankObj() {
+      // Estar entre as posições 1 e 100 do ranking substitui a patente
+      // normal pela patente especial DESAFIANTE, sem alterar os pontos.
       if (isDesafiantePlayer) {
-        return { ...DESAFIANTE_RANK, name: `DESAFIANTE #${playerLeaderboardPos || 'TOP'}` };
+        return { ...DESAFIANTE_RANK, name: "DESAFIANTE 🔥" };
       }
       return RANK_TIERS[getCurrentRankIndex(playerState.points)];
     }
@@ -915,7 +917,35 @@
       const container = document.getElementById("leaderboard-rows");
       const podiumContainer = document.getElementById("podium-container");
       if (!db) {
-        if (container) container.innerHTML = `<div class="p-8 text-center text-xs text-amber-400 font-orbitron">Modo Local Ativo - Jogador: ${playerState.nickname} (${playerState.points} PTS)</div>`;
+        // Modo local: como só existe o jogador local, ele ocupa o TOP 1.
+        // Isso garante que a patente especial funcione mesmo sem Firebase.
+        isDesafiantePlayer = true;
+        playerLeaderboardPos = 1;
+        updateLobbyUI();
+
+        if (podiumContainer) {
+          podiumContainer.innerHTML = `
+            <div class="bg-slate-900 border border-amber-400 glow-gold scale-105 p-4 rounded-2xl flex flex-col items-center text-center relative overflow-hidden">
+              <div class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold font-orbitron bg-amber-400 text-slate-950">1°</div>
+              <div class="w-16 h-16 my-2">${generateRankSVG(DESAFIANTE_RANK, 64, 64)}</div>
+              <h4 class="font-orbitron font-bold text-sm text-white truncate w-full">${playerState.nickname}</h4>
+              <div class="text-xs font-bold text-red-400 font-orbitron mt-0.5">DESAFIANTE</div>
+              <div class="text-xs text-amber-400 font-bold mt-1">${playerState.points.toLocaleString()} PTS</div>
+            </div>`;
+        }
+
+        if (container) {
+          container.innerHTML = `
+            <div class="p-3.5 flex items-center justify-between bg-amber-500/10 border-l-4 border-amber-400">
+              <div class="w-16 font-orbitron font-bold text-xs text-amber-400">1°</div>
+              <div class="flex-grow flex items-center space-x-3">
+                <div class="w-7 h-7 flex-shrink-0">${generateRankSVG(DESAFIANTE_RANK, 28, 28)}</div>
+                <span class="font-orbitron font-bold text-xs text-amber-300">${playerState.nickname} (Você)</span>
+              </div>
+              <div class="w-32 text-center text-xs font-bold text-red-400">DESAFIANTE #1</div>
+              <div class="w-28 text-right font-orbitron font-bold text-xs text-amber-400">${playerState.points.toLocaleString()} PTS</div>
+            </div>`;
+        }
         return;
       }
 
@@ -926,7 +956,7 @@
 
         let playersList = [];
         snap.forEach(doc => {
-          playersList.push(doc.data());
+          playersList.push({ ...doc.data(), userId: doc.data().userId || doc.id });
         });
 
         playersList.sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -934,6 +964,8 @@
         isDesafiantePlayer = false;
         playerLeaderboardPos = null;
 
+        // O jogador fica DESAFIANTE quando sua posição real for de 1º a 100º.
+        // Os pontos continuam exatamente os mesmos; somente a patente/ícone muda.
         if (userId) {
           const myPos = playersList.findIndex(p => p.userId === userId);
           if (myPos >= 0 && myPos < 100) {
@@ -946,21 +978,25 @@
 
         // Render Podium Top 3
         if (podiumContainer) {
-          podiumContainer.innerHTML = [1, 0, 2].map(posIdx => {
+          podiumContainer.innerHTML = [0, 1, 2].map(posIdx => {
             const p = playersList[posIdx];
             if (!p) return '';
-            const rankObj = posIdx < 100 ? DESAFIANTE_RANK : RANK_TIERS[getCurrentRankIndex(p.points || 1000)];
-            const isTop1 = posIdx === 0;
+            const position = posIdx + 1;
+            const rankObj = position <= 100
+              ? DESAFIANTE_RANK
+              : RANK_TIERS[getCurrentRankIndex(p.points || 1000)];
+            const isTop1 = position === 1;
+            const positionLabel = position === 1 ? '1°' : position === 2 ? '2°' : '3°';
             return `
               <div class="bg-slate-900 border ${isTop1 ? 'border-amber-400 glow-gold scale-105' : 'border-slate-800'} p-4 rounded-2xl flex flex-col items-center text-center relative overflow-hidden">
                 <div class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold font-orbitron ${isTop1 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-amber-400'}">
-                  #${posIdx + 1}
+                  ${positionLabel}
                 </div>
                 <div class="w-16 h-16 my-2">
                   ${generateRankSVG(rankObj, 64, 64)}
                 </div>
                 <h4 class="font-orbitron font-bold text-sm text-white truncate w-full">${p.nickname || 'Jogador'}</h4>
-                <div class="text-xs font-bold text-red-400 font-orbitron mt-0.5">${posIdx < 100 ? 'DESAFIANTE' : rankObj.name}</div>
+                <div class="text-xs font-bold text-red-400 font-orbitron mt-0.5">${position <= 100 ? 'DESAFIANTE' : rankObj.name}</div>
                 <div class="text-xs text-amber-400 font-bold mt-1">${(p.points || 1000).toLocaleString()} PTS</div>
               </div>
             `;
@@ -979,11 +1015,12 @@
             const isDesafiante = pos <= 100;
             const rankObj = isDesafiante ? DESAFIANTE_RANK : RANK_TIERS[getCurrentRankIndex(p.points || 1000)];
             const isMe = p.userId === userId;
+            const positionLabel = pos <= 3 ? `${pos}°` : `#${pos}`;
 
             return `
               <div class="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition ${isMe ? 'bg-amber-500/10 border-l-4 border-amber-400' : ''}">
                 <div class="w-16 font-orbitron font-bold text-xs ${pos <= 3 ? 'text-amber-400' : 'text-slate-400'}">
-                  #${pos}
+                  ${positionLabel}
                 </div>
                 <div class="flex-grow flex items-center space-x-3">
                   <div class="w-7 h-7 flex-shrink-0">
