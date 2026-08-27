@@ -10,6 +10,17 @@
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.firebaseModules = {
+      initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged,
+      getFirestore, doc, getDoc, setDoc, updateDoc, collection, onSnapshot, getDocs, deleteDoc
+    };
+  </script>
+
   <style>
     body {
       font-family: 'Inter', sans-serif;
@@ -123,6 +134,10 @@
         <i class="fa-solid fa-house"></i>
         <span>Lobby</span>
       </button>
+      <button onclick="switchTab('ranking')" id="tab-btn-ranking" class="tab-btn px-5 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition flex items-center space-x-2 text-slate-400 hover:text-amber-400 hover:bg-slate-800/50">
+        <i class="fa-solid fa-ranking-star text-amber-400"></i>
+        <span>Top 100</span>
+      </button>
       <button onclick="switchTab('patentes')" id="tab-btn-patentes" class="tab-btn px-5 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition flex items-center space-x-2 text-slate-400 hover:text-amber-400 hover:bg-slate-800/50">
         <i class="fa-solid fa-trophy"></i>
         <span>Patentes (30)</span>
@@ -151,8 +166,8 @@
             <i class="fa-solid fa-clock-rotate-left text-xl"></i>
           </div>
           <div>
-            <h3 class="font-orbitron font-bold text-sm text-amber-300">TEMPORADA EM ANDAMENTO</h3>
-            <p class="text-xs text-slate-400">A temporada reinicia a cada 20 minutos. Aproveite para subir de patente!</p>
+            <h3 class="font-orbitron font-bold text-sm text-amber-300">TEMPORADA GLOBAL EM ANDAMENTO</h3>
+            <p class="text-xs text-slate-400">Cronômetro sincronizado em tempo real globalmente a cada 20 min. Seu progresso fica salvo na sua conta!</p>
           </div>
         </div>
         <div class="bg-slate-950/80 px-4 py-2 rounded-xl border border-amber-500/40 flex items-center space-x-2">
@@ -225,8 +240,8 @@
               <div class="bg-slate-800/40 border border-slate-700/40 p-3 rounded-xl flex items-center space-x-3">
                 <div class="text-red-400 text-2xl"><i class="fa-solid fa-users"></i></div>
                 <div>
-                  <div class="text-xs font-bold text-slate-200">30 INIMIGOS</div>
-                  <div class="text-[11px] text-slate-400 font-semibold">Vêm os 30 DE UMA VEZ na arena!</div>
+                  <div class="text-xs font-bold text-slate-200">MATCHMAKING REAL</div>
+                  <div class="text-[11px] text-amber-400 font-bold">Cai com players reais online ou bots!</div>
                 </div>
               </div>
               <div class="bg-slate-800/40 border border-slate-700/40 p-3 rounded-xl flex items-center space-x-3">
@@ -282,12 +297,47 @@
     <section id="tab-patentes" class="hidden space-y-6">
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6">
         <h2 class="font-orbitron font-black text-2xl text-white tracking-wide mb-2">PROGRESSÃO DE PATENTES (30 TIERES)</h2>
-        <p class="text-xs text-slate-400">Acelere seus pontos conquistando BOOYAH na arena de combate. Confira a tabela com todos os níveis de patente!</p>
+        <p class="text-xs text-slate-400">Acelere seus pontos conquistando BOOYAH na arena de combate. Os 100 melhores jogadores da temporada recebem a patente especial <b>DESAFIANTE</b>!</p>
       </div>
 
       <!-- Grid of 30 Ranks -->
       <div id="ranks-roadmap-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <!-- Rendered via JavaScript -->
+      </div>
+    </section>
+
+    <!-- TAB: RANKING / LEADERBOARD (TOP 100 REAL PLAYERS) -->
+    <section id="tab-ranking" class="hidden space-y-6">
+      <div class="bg-slate-900/90 border border-amber-500/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-crown text-amber-400 text-2xl animate-bounce"></i>
+            <h2 class="font-orbitron font-black text-2xl text-white tracking-wide">RANKING GLOBAL (TOP 1-100)</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Ranking 100% de <b>jogadores reais</b>. Os que ocuparem do 1º ao 100º lugar recebem a patente especial <b class="text-red-400 font-orbitron">DESAFIANTE</b> mantendo sua pontuação original!</p>
+        </div>
+        <button onclick="loadLeaderboard()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 text-xs font-bold rounded-xl border border-slate-700 transition flex items-center space-x-2">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Atualizar Ranking</span>
+        </button>
+      </div>
+
+      <!-- Top 3 Podium Display -->
+      <div id="podium-container" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <!-- Dynamically filled -->
+      </div>
+
+      <!-- Leaderboard List Table -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between font-orbitron text-xs font-bold text-slate-400">
+          <span class="w-16">POSIÇÃO</span>
+          <span class="flex-grow">JOGADOR</span>
+          <span class="w-32 text-center">PATENTE</span>
+          <span class="w-28 text-right">PONTOS</span>
+        </div>
+        <div id="leaderboard-rows" class="divide-y divide-slate-800/60 max-h-[500px] overflow-y-auto">
+          <div class="p-8 text-center text-xs text-slate-500 font-orbitron">Carregando jogadores da temporada...</div>
+        </div>
       </div>
     </section>
 
@@ -379,13 +429,24 @@
 
     <!-- TAB 4: PERFIL DO JOGADOR -->
     <section id="tab-perfil" class="hidden space-y-6">
-      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex items-center space-x-6">
-        <div id="profile-rank-badge-large" class="w-24 h-24 flex-shrink-0 flex items-center justify-center"></div>
-        <div>
-          <h2 id="profile-nick" class="font-orbitron font-black text-2xl text-white">NOOB_PRO</h2>
-          <p id="profile-rank-name" class="text-sm font-bold text-amber-400">Bronze I (1,000 PTS)</p>
-          <div class="mt-2 text-xs text-slate-400">ID da Conta: <span class="text-slate-200 font-mono">#FF-928371</span></div>
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div class="flex items-center space-x-6">
+          <div id="profile-rank-badge-large" class="w-24 h-24 flex-shrink-0 flex items-center justify-center"></div>
+          <div>
+            <div class="flex items-center space-x-3">
+              <h2 id="profile-nick" class="font-orbitron font-black text-2xl text-white">NOOB_PRO</h2>
+              <button onclick="openEditNicknameModal()" class="text-amber-400 hover:text-amber-300 text-sm p-1" title="Alterar Nome">
+                <i class="fa-solid fa-pen-to-square"></i>
+              </button>
+            </div>
+            <p id="profile-rank-name" class="text-sm font-bold text-amber-400">Bronze I (1,000 PTS)</p>
+            <div id="profile-desafiante-status" class="text-xs font-bold text-red-400 mt-1 hidden"><i class="fa-solid fa-fire"></i> TOP 100 - DESAFIANTE ATIVO</div>
+            <div class="mt-2 text-xs text-slate-400">ID da Conta: <span id="profile-user-id-display" class="text-slate-200 font-mono">#FF-CONNECTING</span></div>
+          </div>
         </div>
+        <button onclick="openEditNicknameModal()" class="px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-orbitron font-bold text-xs rounded-xl transition shadow-lg">
+          <i class="fa-solid fa-user-pen mr-1"></i> ALTERAR NOME DE CONTA
+        </button>
       </div>
 
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -413,6 +474,25 @@
     </section>
 
   </main>
+
+  <!-- EDIT NICKNAME MODAL -->
+  <div id="nickname-modal" class="fixed inset-0 bg-slate-950/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-orbitron font-bold text-lg text-white">Escolha o Nome da Conta</h3>
+        <button onclick="closeEditNicknameModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <p class="text-xs text-slate-400">Seu nome de jogador ficará visível no ranking Top 100 e durante as partidas em tempo real.</p>
+      <div>
+        <label class="text-[11px] font-bold text-amber-400 uppercase block mb-1">Seu Nickname:</label>
+        <input type="text" id="nickname-input" max="16" placeholder="Ex: NOOB_PRO" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 font-orbitron text-sm text-white focus:border-amber-500 focus:outline-none" />
+      </div>
+      <div class="flex space-x-2 pt-2">
+        <button onclick="closeEditNicknameModal()" class="w-1/2 py-2.5 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl hover:bg-slate-700">CANCELAR</button>
+        <button onclick="saveNewNickname()" class="w-1/2 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-orbitron font-bold text-xs rounded-xl shadow">SALVAR</button>
+      </div>
+    </div>
+  </div>
 
   <!-- GAME CANVAS OVERLAY CONTAINER (HIDDEN UNTIL MATCH STARTS) -->
   <div id="game-arena-overlay" class="fixed inset-0 bg-slate-950 z-50 hidden flex flex-col justify-between">
@@ -570,6 +650,16 @@
       { name: "Elite de Honra ⭐⭐⭐⭐⭐", points: 10000, color: "#9333ea", division: "", stars: 5, tierGroup: "elite", booyahPts: 500 }
     ];
 
+    // Special Desafiante Rank Object (for Top 100 real players)
+    const DESAFIANTE_RANK = {
+      name: "DESAFIANTE 🔥",
+      color: "#ef4444",
+      division: "TOP",
+      stars: 5,
+      tierGroup: "desafiante",
+      booyahPts: 500
+    };
+
     // Global Player State
     let playerState = {
       nickname: "NOOB_PRO",
@@ -581,31 +671,112 @@
       audioEnabled: true
     };
 
-    // 20-Minute Season Reset Timer Logic
-    let seasonRemainingSeconds = 20 * 60; // 1200 seconds
+    // Firebase Storage & Auth Initialization
+    let db = null;
+    let auth = null;
+    let userId = null;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'free-fire-patentes-app';
 
-    function startSeasonCountdown() {
-      setInterval(() => {
-        if (seasonRemainingSeconds > 0) {
-          seasonRemainingSeconds--;
+    async function initFirebasePersistence() {
+      try {
+        const { initializeApp, getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, getFirestore, doc, getDoc, setDoc, collection, onSnapshot, getDocs } = window.firebaseModules;
+        
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+          apiKey: "demo-key",
+          authDomain: "demo.firebaseapp.com",
+          projectId: "demo-project",
+          storageBucket: "demo.appspot.com",
+          messagingSenderId: "123456789",
+          appId: "1:123456789:web:123456"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+
+        // Rule 3: Auth First
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
         } else {
-          // Reset season when countdown hits 0
-          seasonRemainingSeconds = 20 * 60;
-          playerState.points = 1000; // Reset to Bronze I (1,000 pts)
-          updateLobbyUI();
+          await signInAnonymously(auth);
         }
-        updateSeasonTimerDisplay();
-      }, 1000);
+
+        onAuthStateChanged(auth, async (user) => {
+          if (user) {
+            userId = user.uid;
+            document.getElementById("profile-user-id-display").innerText = `#${userId}`;
+            await loadPlayerProfileFromFirestore();
+            loadLeaderboard();
+          }
+        });
+      } catch (err) {
+        console.warn("Firestore running in offline/local state:", err);
+      }
     }
 
-    function updateSeasonTimerDisplay() {
-      const mins = Math.floor(seasonRemainingSeconds / 60);
-      const secs = seasonRemainingSeconds % 60;
-      const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-      const timerElem = document.getElementById("season-timer-display");
-      if (timerElem) {
-        timerElem.innerText = formatted;
+    // Load Player Profile from Cloud
+    async function loadPlayerProfileFromFirestore() {
+      if (!db || !userId) return;
+      try {
+        const { doc, getDoc, setDoc } = window.firebaseModules;
+        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
+        const snap = await getDoc(playerRef);
+
+        if (snap.exists()) {
+          const data = snap.data();
+          playerState.nickname = data.nickname || playerState.nickname;
+          playerState.points = typeof data.points === 'number' ? data.points : 1000;
+          playerState.booyahs = data.booyahs || 0;
+          playerState.kills = data.kills || 0;
+          playerState.matchesPlayed = data.matchesPlayed || 0;
+          playerState.selectedWeapon = data.selectedWeapon || "MP40";
+        } else {
+          // Initialize new cloud doc for user
+          await savePlayerProfileToFirestore();
+        }
+        updateLobbyUI();
+      } catch (err) {
+        console.error("Error loading profile:", err);
       }
+    }
+
+    // Save Player Profile to Cloud
+    async function savePlayerProfileToFirestore() {
+      if (!db || !userId) return;
+      try {
+        const { doc, setDoc } = window.firebaseModules;
+        const playerRef = doc(db, 'artifacts', appId, 'public', 'data', 'players', userId);
+        await setDoc(playerRef, {
+          userId: userId,
+          nickname: playerState.nickname,
+          points: playerState.points,
+          booyahs: playerState.booyahs,
+          kills: playerState.kills,
+          matchesPlayed: playerState.matchesPlayed,
+          selectedWeapon: playerState.selectedWeapon,
+          updatedAt: Date.now()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Error saving profile:", err);
+      }
+    }
+
+    // Global 20-Minute Synchronized Season Timer
+    function startSeasonCountdown() {
+      setInterval(() => {
+        const nowSec = Math.floor(Date.now() / 1000);
+        const seasonCycle = 20 * 60; // 1200 seconds
+        const seasonRemainingSeconds = seasonCycle - (nowSec % seasonCycle);
+
+        const mins = Math.floor(seasonRemainingSeconds / 60);
+        const secs = seasonRemainingSeconds % 60;
+        const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        
+        const timerElem = document.getElementById("season-timer-display");
+        if (timerElem) {
+          timerElem.innerText = formatted;
+        }
+      }, 1000);
     }
 
     // Helper to generate dynamic SVG shields for every rank tier
@@ -655,9 +826,20 @@
       return idx;
     }
 
+    // Check if player is in Top 100 real players for Desafiante title
+    let isDesafiantePlayer = false;
+    let playerLeaderboardPos = null;
+
+    function getActivePlayerRankObj() {
+      if (isDesafiantePlayer) {
+        return { ...DESAFIANTE_RANK, name: `DESAFIANTE #${playerLeaderboardPos || 'TOP'}` };
+      }
+      return RANK_TIERS[getCurrentRankIndex(playerState.points)];
+    }
+
     function updateLobbyUI() {
+      const curRank = getActivePlayerRankObj();
       const curIdx = getCurrentRankIndex(playerState.points);
-      const curRank = RANK_TIERS[curIdx];
       const nextRank = RANK_TIERS[Math.min(curIdx + 1, RANK_TIERS.length - 1)];
 
       // Header UI
@@ -669,7 +851,8 @@
       // Lobby Card UI
       document.getElementById("lobby-rank-svg-container").innerHTML = generateRankSVG(curRank, 140, 140);
       document.getElementById("lobby-rank-title").innerText = curRank.name;
-      document.getElementById("lobby-rank-sub").innerText = `${curRank.points.toLocaleString()} PTS (${curRank.tierGroup.toUpperCase()})`;
+      document.getElementById("lobby-rank-sub").innerText = `${playerState.points.toLocaleString()} PTS (${isDesafiantePlayer ? 'TOP 100 DESAFIANTE' : curRank.tierGroup.toUpperCase()})`;
+      document.getElementById("player-nickname-display").innerText = playerState.nickname;
       
       document.getElementById("lobby-pts-current").innerText = `${playerState.points.toLocaleString()} PTS`;
       document.getElementById("lobby-pts-next").innerText = curIdx === RANK_TIERS.length - 1 ? "MÁXIMO ALCANÇADO" : `Próxima: ${nextRank.points.toLocaleString()} PTS`;
@@ -680,7 +863,7 @@
       // Progress Bar calculation
       let pct = 100;
       if (curIdx < RANK_TIERS.length - 1) {
-        const curReq = curRank.points;
+        const curReq = RANK_TIERS[curIdx].points;
         const nextReq = nextRank.points;
         pct = Math.min(100, Math.max(0, ((playerState.points - curReq) / (nextReq - curReq)) * 100));
       }
@@ -695,8 +878,239 @@
       document.getElementById("stat-matches").innerText = playerState.matchesPlayed;
       document.getElementById("stat-kd").innerText = playerState.matchesPlayed > 0 ? (playerState.kills / playerState.matchesPlayed).toFixed(2) : "0.00";
 
+      const desafianteBadge = document.getElementById("profile-desafiante-status");
+      if (isDesafiantePlayer) {
+        desafianteBadge.classList.remove("hidden");
+      } else {
+        desafianteBadge.classList.add("hidden");
+      }
+
       // Render Ranks Grid
       renderRanksRoadmap();
+    }
+
+    // Leaderboard Fetching & Desafiante Rank Calculation
+    async function loadLeaderboard() {
+      const container = document.getElementById("leaderboard-rows");
+      const podiumContainer = document.getElementById("podium-container");
+      if (!db) return;
+
+      try {
+        const { collection, getDocs } = window.firebaseModules;
+        const playersRef = collection(db, 'artifacts', appId, 'public', 'data', 'players');
+        const snap = await getDocs(playersRef);
+
+        let playersList = [];
+        snap.forEach(doc => {
+          playersList.push(doc.data());
+        });
+
+        // Sort players by points descending in JS memory (Rule 2: No compound queries)
+        playersList.sort((a, b) => (b.points || 0) - (a.points || 0));
+
+        // Check local player position in top 100
+        isDesafiantePlayer = false;
+        playerLeaderboardPos = null;
+
+        if (userId) {
+          const myPos = playersList.findIndex(p => p.userId === userId);
+          if (myPos >= 0 && myPos < 100) {
+            isDesafiantePlayer = true;
+            playerLeaderboardPos = myPos + 1;
+          }
+        }
+
+        updateLobbyUI();
+
+        // Render Podium Top 3
+        if (podiumContainer) {
+          podiumContainer.innerHTML = [1, 0, 2].map(posIdx => {
+            const p = playersList[posIdx];
+            if (!p) return '';
+            const rankObj = posIdx < 100 ? DESAFIANTE_RANK : RANK_TIERS[getCurrentRankIndex(p.points || 1000)];
+            const isTop1 = posIdx === 0;
+            return `
+              <div class="bg-slate-900 border ${isTop1 ? 'border-amber-400 glow-gold scale-105' : 'border-slate-800'} p-4 rounded-2xl flex flex-col items-center text-center relative overflow-hidden">
+                <div class="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-bold font-orbitron ${isTop1 ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-amber-400'}">
+                  #${posIdx + 1}
+                </div>
+                <div class="w-16 h-16 my-2">
+                  ${generateRankSVG(rankObj, 64, 64)}
+                </div>
+                <h4 class="font-orbitron font-bold text-sm text-white truncate w-full">${p.nickname || 'Jogador'}</h4>
+                <div class="text-xs font-bold text-red-400 font-orbitron mt-0.5">${posIdx < 100 ? 'DESAFIANTE' : rankObj.name}</div>
+                <div class="text-xs text-amber-400 font-bold mt-1">${(p.points || 1000).toLocaleString()} PTS</div>
+              </div>
+            `;
+          }).join('');
+        }
+
+        // Render Rows Top 100
+        if (container) {
+          if (playersList.length === 0) {
+            container.innerHTML = `<div class="p-8 text-center text-xs text-slate-500 font-orbitron">Nenhum jogador registrado nesta temporada ainda.</div>`;
+            return;
+          }
+
+          container.innerHTML = playersList.slice(0, 100).map((p, idx) => {
+            const pos = idx + 1;
+            const isDesafiante = pos <= 100;
+            const rankObj = isDesafiante ? DESAFIANTE_RANK : RANK_TIERS[getCurrentRankIndex(p.points || 1000)];
+            const isMe = p.userId === userId;
+
+            return `
+              <div class="p-3.5 flex items-center justify-between hover:bg-slate-800/40 transition ${isMe ? 'bg-amber-500/10 border-l-4 border-amber-400' : ''}">
+                <div class="w-16 font-orbitron font-bold text-xs ${pos <= 3 ? 'text-amber-400' : 'text-slate-400'}">
+                  #${pos}
+                </div>
+                <div class="flex-grow flex items-center space-x-3">
+                  <div class="w-7 h-7 flex-shrink-0">
+                    ${generateRankSVG(rankObj, 28, 28)}
+                  </div>
+                  <span class="font-orbitron font-bold text-xs text-white ${isMe ? 'text-amber-300' : ''}">
+                    ${p.nickname || 'Jogador'} ${isMe ? '(Você)' : ''}
+                  </span>
+                </div>
+                <div class="w-32 text-center text-xs font-bold ${isDesafiante ? 'text-red-400' : 'text-slate-300'}">
+                  ${isDesafiante ? `DESAFIANTE #${pos}` : rankObj.name}
+                </div>
+                <div class="w-28 text-right font-orbitron font-bold text-xs text-amber-400">
+                  ${(p.points || 1000).toLocaleString()} PTS
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error("Error loading leaderboard:", err);
+      }
+    }
+
+    // Edit Nickname Modals
+    function openEditNicknameModal() {
+      document.getElementById("nickname-input").value = playerState.nickname;
+      document.getElementById("nickname-modal").classList.remove("hidden");
+    }
+
+    function closeEditNicknameModal() {
+      document.getElementById("nickname-modal").classList.add("hidden");
+    }
+
+    async function saveNewNickname() {
+      const input = document.getElementById("nickname-input").value.trim();
+      if (input.length < 3) {
+        alert("O nome precisa ter pelo menos 3 caracteres.");
+        return;
+      }
+      playerState.nickname = input.substring(0, 16);
+      closeEditNicknameModal();
+      updateLobbyUI();
+      await savePlayerProfileToFirestore();
+      loadLeaderboard();
+    }
+
+    // REAL-TIME MULTIPLAYER MATCHMAKING ENGINE
+    let currentMatchId = null;
+    let matchUnsubscribe = null;
+    let onlineOtherPlayers = {}; // Stores live real player positions in match
+
+    async function startBattleRoyaleMatch() {
+      document.getElementById("game-arena-overlay").classList.remove("hidden");
+
+      // Reset Match State
+      gameState.active = true;
+      gameState.player.x = canvas.width / 2 + (Math.random() * 200 - 100);
+      gameState.player.y = canvas.height / 2 + (Math.random() * 200 - 100);
+      gameState.player.hp = 200;
+      gameState.player.maxHp = 200;
+      gameState.player.gloo = 3;
+      gameState.player.medkits = 10;
+      gameState.bullets = [];
+      gameState.gloowalls = [];
+      gameState.killsThisMatch = 0;
+      gameState.totalEnemiesInMatch = 30;
+      gameState.aliveCount = 30;
+      gameState.spinSkillCooldown = 0;
+      gameState.safeZone = { x: canvas.width / 2, y: canvas.height / 2, radius: Math.max(canvas.width, canvas.height) };
+
+      // Multi-player Matchmaking room logic
+      onlineOtherPlayers = {};
+      if (db && userId) {
+        await joinMultiplayerMatchRoom();
+      }
+
+      // Spawn Enemy Bots to complete remaining 30 arena slots
+      gameState.enemies = [];
+      const botCount = Math.max(1, 30 - Object.keys(onlineOtherPlayers).length);
+      for (let i = 0; i < botCount; i++) {
+        spawnEnemyBot();
+      }
+
+      // Start Loop
+      requestAnimationFrame(gameLoop);
+    }
+
+    async function joinMultiplayerMatchRoom() {
+      try {
+        const { collection, getDocs, doc, setDoc, onSnapshot } = window.firebaseModules;
+        const matchesRef = collection(db, 'artifacts', appId, 'public', 'data', 'matches');
+        const snap = await getDocs(matchesRef);
+
+        const now = Date.now();
+        let openMatchId = null;
+
+        snap.forEach(d => {
+          const mData = d.data();
+          if (mData.createdAt && (now - mData.createdAt) < 15000) { // Join room created in last 15s
+            openMatchId = d.id;
+          }
+        });
+
+        if (!openMatchId) {
+          openMatchId = `match_${now}_${Math.floor(Math.random() * 1000)}`;
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'matches', openMatchId), {
+            createdAt: now,
+            hostId: userId
+          });
+        }
+
+        currentMatchId = openMatchId;
+
+        // Listen for other real players joining and moving in the same room
+        const playersSubRef = collection(db, 'artifacts', appId, 'public', 'data', 'matches', currentMatchId, 'match_players');
+        
+        matchUnsubscribe = onSnapshot(playersSubRef, (snapshot) => {
+          snapshot.forEach(pDoc => {
+            if (pDoc.id !== userId) {
+              const pData = pDoc.data();
+              if (pData.hp > 0) {
+                onlineOtherPlayers[pDoc.id] = pData;
+              } else {
+                delete onlineOtherPlayers[pDoc.id];
+              }
+            }
+          });
+        });
+
+      } catch (err) {
+        console.warn("Matchmaking fallback to offline bots:", err);
+      }
+    }
+
+    async function syncMyPositionInMatch() {
+      if (!db || !userId || !currentMatchId || !gameState.active) return;
+      try {
+        const { doc, setDoc } = window.firebaseModules;
+        const myMatchPlayerRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', currentMatchId, 'match_players', userId);
+        await setDoc(myMatchPlayerRef, {
+          userId: userId,
+          nickname: playerState.nickname,
+          x: gameState.player.x,
+          y: gameState.player.y,
+          hp: gameState.player.hp,
+          updatedAt: Date.now()
+        }, { merge: true });
+      } catch (e) {}
     }
 
     function renderRanksRoadmap() {
@@ -704,7 +1118,7 @@
       const curIdx = getCurrentRankIndex(playerState.points);
 
       container.innerHTML = RANK_TIERS.map((tier, idx) => {
-        const isCurrent = idx === curIdx;
+        const isCurrent = idx === curIdx && !isDesafiantePlayer;
         const isUnlocked = idx <= curIdx;
         
         let badgeStatus = isCurrent 
@@ -745,6 +1159,10 @@
       if (activeBtn) {
         activeBtn.className = "tab-btn px-5 py-2.5 rounded-xl font-orbitron font-bold text-xs uppercase tracking-wider transition flex items-center space-x-2 bg-amber-500 text-slate-950 shadow-lg glow-gold";
       }
+
+      if (tabId === 'ranking') {
+        loadLeaderboard();
+      }
     }
 
     function selectWeapon(wName) {
@@ -763,6 +1181,7 @@
         }
       });
       updateLobbyUI();
+      savePlayerProfileToFirestore();
     }
 
     // Web Audio Synthesizer for FX
@@ -875,35 +1294,6 @@
       }
     }
 
-    function startBattleRoyaleMatch() {
-      document.getElementById("game-arena-overlay").classList.remove("hidden");
-
-      // Reset Match State
-      gameState.active = true;
-      gameState.player.x = canvas.width / 2;
-      gameState.player.y = canvas.height / 2;
-      gameState.player.hp = 200; // Player has 200 HP
-      gameState.player.maxHp = 200;
-      gameState.player.gloo = 3;
-      gameState.player.medkits = 10;
-      gameState.bullets = [];
-      gameState.gloowalls = [];
-      gameState.killsThisMatch = 0;
-      gameState.totalEnemiesInMatch = 30;
-      gameState.aliveCount = 30;
-      gameState.spinSkillCooldown = 0;
-      gameState.safeZone = { x: canvas.width / 2, y: canvas.height / 2, radius: Math.max(canvas.width, canvas.height) };
-
-      // Spawn ALL 30 Enemies AT ONCE into the Arena
-      gameState.enemies = [];
-      for (let i = 0; i < 30; i++) {
-        spawnEnemyBot();
-      }
-
-      // Start Loop
-      requestAnimationFrame(gameLoop);
-    }
-
     function spawnEnemyBot() {
       const angle = Math.random() * Math.PI * 2;
       const dist = 250 + Math.random() * 400;
@@ -985,12 +1375,19 @@
       updateHUD();
     }
 
+    let syncFrameTicker = 0;
+
     function gameLoop() {
       if (!gameState.active) return;
 
-      // 1. Cooldown Tickers
+      // 1. Cooldown Tickers & Position Sync
       if (gameState.spinSkillCooldown > 0) {
         gameState.spinSkillCooldown--;
+      }
+
+      syncFrameTicker++;
+      if (syncFrameTicker % 15 === 0) { // Sync online position every ~0.25 seconds
+        syncMyPositionInMatch();
       }
 
       // 2. Player Movement
@@ -1073,8 +1470,9 @@
         }
         if (hitGloo) continue;
 
-        // Player Bullets hitting Enemies
+        // Player Bullets hitting Enemies / Other Online Players
         if (!b.isEnemy) {
+          // Check Bots
           for (let eIdx = gameState.enemies.length - 1; eIdx >= 0; eIdx--) {
             const enemy = gameState.enemies[eIdx];
             if (Math.hypot(b.x - enemy.x, b.y - enemy.y) < 18) {
@@ -1096,6 +1494,22 @@
               break;
             }
           }
+
+          // Check Online Players
+          Object.keys(onlineOtherPlayers).forEach(opId => {
+            const op = onlineOtherPlayers[opId];
+            if (Math.hypot(b.x - op.x, b.y - op.y) < 18) {
+              gameState.bullets.splice(i, 1);
+              playAudioFx('hit');
+              gameState.killsThisMatch++;
+              delete onlineOtherPlayers[opId];
+              gameState.aliveCount--;
+              if (gameState.aliveCount <= 1) {
+                endBattleRoyaleMatch(true);
+              }
+            }
+          });
+
         } else {
           // Enemy Bullet hitting Player
           if (Math.hypot(b.x - gameState.player.x, b.y - gameState.player.y) < gameState.player.radius) {
@@ -1149,7 +1563,7 @@
         ctx.stroke();
       });
 
-      // 3. Draw Enemies
+      // 3. Draw Enemies (Bots)
       gameState.enemies.forEach(e => {
         ctx.beginPath();
         ctx.arc(e.x, e.y, 14, 0, Math.PI * 2);
@@ -1159,14 +1573,30 @@
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Enemy Label
         ctx.fillStyle = "#ffffff";
         ctx.font = "10px Orbitron";
         ctx.textAlign = "center";
         ctx.fillText("BOT", e.x, e.y - 18);
       });
 
-      // 4. Draw Bullets
+      // 4. Draw Other Real Players Online
+      Object.keys(onlineOtherPlayers).forEach(opId => {
+        const op = onlineOtherPlayers[opId];
+        ctx.beginPath();
+        ctx.arc(op.x, op.y, 14, 0, Math.PI * 2);
+        ctx.fillStyle = "#38bdf8";
+        ctx.fill();
+        ctx.strokeStyle = "#0284c7";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        ctx.fillStyle = "#fde047";
+        ctx.font = "bold 10px Orbitron";
+        ctx.textAlign = "center";
+        ctx.fillText(`PLAYER: ${op.nickname || 'REAL'}`, op.x, op.y - 18);
+      });
+
+      // 5. Draw Bullets
       gameState.bullets.forEach(b => {
         ctx.beginPath();
         ctx.arc(b.x, b.y, 4, 0, Math.PI * 2);
@@ -1174,7 +1604,7 @@
         ctx.fill();
       });
 
-      // 5. Draw Player Character
+      // 6. Draw Player Character
       ctx.beginPath();
       ctx.arc(gameState.player.x, gameState.player.y, gameState.player.radius, 0, Math.PI * 2);
       ctx.fillStyle = "#fbbf24";
@@ -1211,13 +1641,17 @@
       document.getElementById("hud-kills-count").innerText = gameState.killsThisMatch;
     }
 
-    function endBattleRoyaleMatch(isVictory) {
+    async function endBattleRoyaleMatch(isVictory) {
       gameState.active = false;
       playerState.matchesPlayed++;
       playerState.kills += gameState.killsThisMatch;
 
-      const previousRankIdx = getCurrentRankIndex(playerState.points);
-      const curRankObj = RANK_TIERS[previousRankIdx];
+      if (matchUnsubscribe) {
+        matchUnsubscribe();
+        matchUnsubscribe = null;
+      }
+
+      const curRankObj = getActivePlayerRankObj();
 
       // Points earned based on current Rank Tier's booyahPts setting
       let ptsEarned = 0;
@@ -1230,7 +1664,10 @@
       }
 
       playerState.points = Math.max(1000, playerState.points + ptsEarned);
-      const newRankIdx = getCurrentRankIndex(playerState.points);
+
+      // Save updated data to cloud immediately
+      await savePlayerProfileToFirestore();
+      await loadLeaderboard();
 
       const modal = document.getElementById("match-results-modal");
       const title = document.getElementById("modal-main-title");
@@ -1243,7 +1680,7 @@
       if (isVictory) {
         title.innerText = "BOOYAH!";
         title.className = "font-orbitron font-black text-4xl text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 tracking-wider booyah-anim";
-        subTitle.innerText = `Você derrotou todos os 30 oponentes! Bônus ${curRankObj.name}: +${ptsEarned} PTS`;
+        subTitle.innerText = `Você venceu a partida! Bônus ${curRankObj.name}: +${ptsEarned} PTS`;
         rankPos.innerText = "#1 (BOOYAH!)";
       } else {
         title.innerText = "DERROTA";
@@ -1256,9 +1693,9 @@
       ptsEarnedText.innerText = ptsEarned >= 0 ? `+${ptsEarned} PTS` : `${ptsEarned} PTS`;
       ptsEarnedText.className = ptsEarned >= 0 ? "font-orbitron text-emerald-400 text-2xl" : "font-orbitron text-red-400 text-2xl";
 
-      if (newRankIdx > previousRankIdx) {
+      if (isDesafiantePlayer) {
         rankUpAlert.classList.remove("hidden");
-        document.getElementById("modal-new-rank-name").innerText = `PATENTE: ${RANK_TIERS[newRankIdx].name}`;
+        document.getElementById("modal-new-rank-name").innerText = `PATENTE ESPECIAL: DESAFIANTE TOP 100`;
       } else {
         rankUpAlert.classList.add("hidden");
       }
@@ -1272,11 +1709,12 @@
       document.getElementById("game-arena-overlay").classList.add("hidden");
     }
 
-    // Initialize Game Engine, Season Countdown, and UI on page load
+    // Initialize Game Engine, Persistence, Season Countdown, and UI on page load
     window.onload = function() {
       initGameEngine();
       updateLobbyUI();
       startSeasonCountdown();
+      initFirebasePersistence();
     };
   </script>
 </body>
